@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Absensi Pekerja - Timestamp Camera</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Flash animation for camera shutter */
+        @keyframes shutter-flash {
+            0% { opacity: 1; }
+            50% { opacity: 0.2; }
+            100% { opacity: 1; }
+        }
+        .flash-effect {
+            animation: shutter-flash 0.25s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/30">
+                    <i data-lucide="camera" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">AbsenKu Mobile</h1>
+                    <p class="text-xs text-slate-400">Sistem Absensi Timestamp Pekerja</p>
+                </div>
+            </div>
+
+            <!-- Header Indicators -->
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <!-- Clock -->
+                <div class="hidden sm:flex items-center space-x-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60 text-xs font-mono">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span id="headerClock">00:00:00 WIB</span>
+                </div>
+                <!-- GPS Pill -->
+                <div id="gpsStatusBadge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5 animate-pulse"></i>
+                    <span id="gpsStatusText">Mencari GPS...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col">
+
+        <!-- Navigation Tabs -->
+        <div class="flex border-b border-slate-200 mb-6 bg-white rounded-xl p-1.5 shadow-sm">
+            <button id="tabFormBtn" onclick="switchTab('form')" 
+                class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center space-x-2 bg-indigo-600 text-white shadow-sm">
+                <i data-lucide="user-check" class="w-4 h-4"></i>
+                <span>Form Absensi</span>
+            </button>
+            <button id="tabHistoryBtn" onclick="switchTab('history')" 
+                class="flex-1 py-2.5 px-4 rounded-lg font-medium text-sm text-slate-600 hover:text-slate-900 transition-all duration-200 flex items-center justify-center space-x-2">
+                <i data-lucide="history" class="w-4 h-4"></i>
+                <span>Riwayat Absensi</span>
+                <span id="historyBadgeCount" class="ml-1 bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-semibold border border-slate-200">0</span>
+            </button>
+        </div>
+
+        <!-- SECTION 1: FORM ABSENSI -->
+        <div id="sectionForm" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Left Column: Form Controls -->
+            <div class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6 space-y-5">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                        <i data-lucide="file-text" class="w-5 h-5 text-indigo-600"></i>
+                        <span>Data Absensi Pekerja</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">Lengkapi data diri dan lakukan pengambilan foto timestamp.</p>
+                </div>
+
+                <form id="attendanceForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    <!-- Nama Pekerja -->
+                    <div>
+                        <label for="workerName" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Nama Lengkap <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <i data-lucide="user" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="workerName" required placeholder="Contoh: Budi Santoso"
+                                class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none">
+                        </div>
+                    </div>
+
+                    <!-- ID / NIP Pekerja -->
+                    <div>
+                        <label for="workerNip" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                            ID / NIP Pekerja <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <i data-lucide="badge-check" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="workerNip" required placeholder="Contoh: EMP-2026-089"
+                                class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none">
+                        </div>
+                    </div>
+
+                    <!-- Jenis Absen -->
+                    <div>
+                        <label for="attendanceType" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Jenis Absensi <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <i data-lucide="log-in" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <select id="attendanceType" required
+                                class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none appearance-none">
+                                <option value="Absen Masuk">🟢 Absen Masuk</option>
+                                <option value="Absen Pulang">🔴 Absen Pulang</option>
+                                <option value="Dinas Luar">🟡 Dinas Luar / Lapangan</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Catatan Tambahan -->
+                    <div>
+                        <label for="attendanceNotes" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                            Catatan (Opsional)
+                        </label>
+                        <textarea id="attendanceNotes" rows="2" placeholder="Tuliskan keterangan lokasi atau pekerjaan jika ada..."
+                            class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-none"></textarea>
+                    </div>
+
+                    <!-- Location Status Info -->
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-1">
+                        <div class="font-medium text-slate-800 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5">
+                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                Info Koordinat GPS:
+                            </span>
+                            <button type="button" onclick="requestGeolocation(true)" class="text-indigo-600 hover:underline text-[11px]">Muat Ulang</button>
+                        </div>
+                        <p id="gpsDetailText" class="font-mono text-[11px] text-slate-500 truncate">Mendapatkan data lokasi...</p>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submitBtn" disabled
+                        class="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/20 disabled:shadow-none transition-all duration-200 flex items-center justify-center space-x-2">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                        <span>Kirim Data Absensi</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right Column: Camera & Timestamp Photo Engine -->
+            <div class="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                            <i data-lucide="aperture" class="w-5 h-5 text-indigo-600"></i>
+                            <span>Kamera & Timestamp Real-Time</span>
+                        </h2>
+                        <p class="text-xs text-slate-500">Ambil foto verifikasi diri lokasi dan waktu.</p>
+                    </div>
+
+                    <!-- Flip Camera Button -->
+                    <button type="button" onclick="switchCamera()" 
+                        class="p-2 text-slate-600 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center space-x-1.5 text-xs font-medium"
+                        title="Ganti Kamera Depan/Belakang">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Ganti Kamera</span>
+                    </button>
+                </div>
+
+                <!-- Camera / Preview Container -->
+                <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border border-slate-800 group" id="cameraViewport">
+                    
+                    <!-- Live Video Element -->
+                    <video id="webcam" autoplay playsinline class="w-full h-full object-cover"></video>
+
+                    <!-- Hidden Canvas for Watermarking -->
+                    <canvas id="photoCanvas" class="hidden"></canvas>
+
+                    <!-- Captured Photo Preview Layer -->
+                    <img id="photoResultPreview" class="w-full h-full object-cover hidden z-10" alt="Hasil Foto Absensi">
+
+                    <!-- Camera Error / Initial State Fallback Overlay -->
+                    <div id="cameraErrorBox" class="absolute inset-0 bg-slate-900/90 text-white p-6 flex flex-col items-center justify-center text-center hidden z-20">
+                        <div class="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mb-3">
+                            <i data-lucide="camera-off" class="w-6 h-6"></i>
+                        </div>
+                        <h3 class="font-semibold text-sm">Akses Kamera Bermasalah</h3>
+                        <p id="cameraErrorMessage" class="text-xs text-slate-400 mt-1 max-w-xs">Pastikan izin kamera telah diberikan pada browser Anda.</p>
+                        <button onclick="initCamera()" class="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition">
+                            Coba Lagi
+                        </button>
+                    </div>
+
+                    <!-- Real-time Live Badge on Top Right -->
+                    <div id="liveBadge" class="absolute top-3 right-3 bg-rose-600/90 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-md backdrop-blur-sm z-10">
+                        <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                        LIVE PREVIEW
+                    </div>
+
+                    <!-- Watermark Live Overlay Preview (Visual Guide) -->
+                    <div id="liveWatermarkGuide" class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 text-white text-xs font-mono pointer-events-none z-10 flex justify-between items-end">
+                        <div class="space-y-0.5 max-w-[80%]">
+                            <div class="flex items-center space-x-1 text-emerald-400 font-bold text-[11px]">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                                <span>VERIFIED TIMESTAMP</span>
+                            </div>
+                            <div id="liveGuideTime" class="text-xs font-semibold">00/00/0000 00:00:00 WIB</div>
+                            <div id="liveGuideLocation" class="text-[10px] opacity-80 truncate">GPS: Lat --, Long --</div>
+                        </div>
+                        <i data-lucide="qr-code" class="w-8 h-8 opacity-40"></i>
+                    </div>
+                </div>
+
+                <!-- Camera Action Controls -->
+                <div class="flex items-center justify-center space-x-4 pt-1">
+                    <!-- Retake Button (Hidden initially) -->
+                    <button type="button" id="retakeBtn" onclick="retakePhoto()" class="hidden px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-xl text-sm transition-all flex items-center space-x-2">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        <span>Foto Ulang</span>
+                    </button>
+
+                    <!-- Take Photo Button -->
+                    <button type="button" id="captureBtn" onclick="takePhotoWithWatermark()" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center space-x-2">
+                        <i data-lucide="camera" class="w-5 h-5"></i>
+                        <span>Ambil Foto</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SECTION 2: RIWAYAT ABSENSI -->
+        <div id="sectionHistory" class="hidden space-y-6">
+            
+            <!-- Filters & Summary Toolbar -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center space-x-2">
+                            <i data-lucide="database" class="w-5 h-5 text-indigo-600"></i>
+                            <span>Riwayat Absensi Terdaftar</span>
+                        </h2>
+                        <p class="text-xs text-slate-500">Daftar presensi yang tersimpan secara lokal di peranti ini.</p>
+                    </div>
+
+                    <!-- Export Buttons -->
+                    <div class="flex items-center space-x-2">
+                        <button onclick="exportToCSV()" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                            <span>Ekspor CSV</span>
+                        </button>
+                        <button onclick="exportToJSON()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+                            <i data-lucide="file-json" class="w-4 h-4"></i>
+                            <span>Ekspor JSON</span>
+                        </button>
+                        <button onclick="confirmClearHistory()" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center space-x-1" title="Hapus Semua Data">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <!-- Search and Filter Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <!-- Search Input -->
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Cari Nama / NIP Pekerja..."
+                            class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <!-- Filter Date -->
+                    <div class="relative">
+                        <i data-lucide="calendar" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="date" id="filterDate" onchange="applyFilters()"
+                            class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <!-- Filter Type -->
+                    <div class="relative">
+                        <i data-lucide="filter" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <select id="filterType" onchange="applyFilters()"
+                            class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none">
+                            <option value="">Semua Jenis Absen</option>
+                            <option value="Absen Masuk">Absen Masuk</option>
+                            <option value="Absen Pulang">Absen Pulang</option>
+                            <option value="Dinas Luar">Dinas Luar</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Cards / Table Container -->
+            <div id="historyListContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Dynamically populated via JS -->
+            </div>
+
+            <!-- Empty History State -->
+            <div id="emptyHistoryState" class="hidden bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+                <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="inbox" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-bold text-slate-700 text-sm">Belum Ada Data Absensi</h3>
+                <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Silakan lakukan absensi terlebih dahulu melalui Form Absensi di atas.</p>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Modal Preview Detail Foto -->
+    <div id="photoModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+                <h3 id="modalTitle" class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i data-lucide="image" class="w-4 h-4 text-indigo-600"></i>
+                    <span>Detail Foto Timestamp</span>
+                </h3>
+                <button onclick="closePhotoModal()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-4">
+                <div class="rounded-xl overflow-hidden bg-slate-900 border border-slate-200">
+                    <img id="modalImage" class="w-full h-auto object-contain max-h-[60vh] mx-auto" alt="Detail Absensi">
+                </div>
+                <div id="modalDetails" class="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="p-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+                <button onclick="downloadModalPhoto()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Unduh Foto</span>
+                </button>
+                <button onclick="closePhotoModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- Application Script -->
+    <script>
+        // --- APPLICATION STATE ---
+        const state = {
+            currentTab: 'form',
+            stream: null,
+            facingMode: 'user', // 'user' (front) or 'environment' (back)
+            capturedPhotoDataUrl: null,
+            gps: {
+                lat: null,
+                lng: null,
+                status: 'pending', // 'acquired', 'denied', 'error'
+                text: 'Mencari lokasi...'
+            },
+            records: []
+        };
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            startLiveClock();
+            requestGeolocation();
+            initCamera();
+            loadRecordsFromStorage();
+            updateHistoryBadge();
+        });
+
+        // --- REALTIME CLOCK ---
+        function startLiveClock() {
+            const updateClock = () => {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('id-ID', { hour12: false }) + ' WIB';
+                const dateString = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                
+                // Update header clock
+                document.getElementById('headerClock').innerText = timeString;
+                
+                // Update overlay preview text
+                document.getElementById('liveGuideTime').innerText = `${dateString} ${timeString}`;
+            };
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        // --- GEOLOCATION HANDLING ---
+        function requestGeolocation(manualRetry = false) {
+            const gpsBadge = document.getElementById('gpsStatusBadge');
+            const gpsBadgeText = document.getElementById('gpsStatusText');
+            const gpsDetailText = document.getElementById('gpsDetailText');
+            const liveGuideLocation = document.getElementById('liveGuideLocation');
+
+            if (manualRetry) {
+                showToast('Mencoba memperbarui GPS...', 'info');
+            }
+
+            if (!navigator.geolocation) {
+                state.gps.status = 'error';
+                state.gps.text = 'GPS Tidak Didukung Browser';
+                updateGpsUI(gpsBadge, gpsBadgeText, gpsDetailText, liveGuideLocation, false);
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    state.gps.lat = position.coords.latitude.toFixed(6);
+                    state.gps.lng = position.coords.longitude.toFixed(6);
+                    state.gps.status = 'acquired';
+                    state.gps.text = `Lat: ${state.gps.lat}, Long: ${state.gps.lng}`;
+
+                    updateGpsUI(gpsBadge, gpsBadgeText, gpsDetailText, liveGuideLocation, true);
+                    if(manualRetry) showToast('Lokasi GPS berhasil didapatkan!', 'success');
+                },
+                (error) => {
+                    console.warn("Geolocation Error:", error.message);
+                    state.gps.status = 'denied';
+                    state.gps.text = 'Lokasi GPS Tidak Diizinkan / Offline';
+                    updateGpsUI(gpsBadge, gpsBadgeText, gpsDetailText, liveGuideLocation, false);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
+
+        function updateGpsUI(badge, badgeText, detailText, liveText, success) {
+            if (success) {
+                badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+                badgeText.innerText = "GPS Aktif";
+                detailText.innerText = state.gps.text;
+                liveText.innerText = `📍 ${state.gps.text}`;
+            } else {
+                badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20";
+                badgeText.innerText = "GPS Nonaktif";
+                detailText.innerText = state.gps.text;
+                liveText.innerText = `📍 ${state.gps.text}`;
+            }
+        }
+
+        // --- CAMERA API HANDLING ---
+        async function initCamera() {
+            const video = document.getElementById('webcam');
+            const errorBox = document.getElementById('cameraErrorBox');
+            
+            // Stop existing tracks if active
+            if (state.stream) {
+                state.stream.getTracks().forEach(track => track.stop());
+            }
+
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: state.facingMode,
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+
+                state.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = state.stream;
+                errorBox.classList.add('hidden');
+            } catch (err) {
+                console.error("Camera access error:", err);
+                document.getElementById('cameraErrorMessage').innerText = "Gagal mengakses kamera: " + (err.message || "Izin ditolak");
+                errorBox.classList.remove('hidden');
+            }
+        }
+
+        function switchCamera() {
+            state.facingMode = (state.facingMode === 'user') ? 'environment' : 'user';
+            initCamera();
+            showToast(`Mengalihkan ke kamera ${state.facingMode === 'user' ? 'depan' : 'belakang'}`, 'info');
+        }
+
+        // --- WATERMARK & CAPTURE LOGIC ---
+        function takePhotoWithWatermark() {
+            const video = document.getElementById('webcam');
+            const canvas = document.getElementById('photoCanvas');
+            const previewImg = document.getElementById('photoResultPreview');
+            const liveGuide = document.getElementById('liveWatermarkGuide');
+            const liveBadge = document.getElementById('liveBadge');
+            const captureBtn = document.getElementById('captureBtn');
+            const retakeBtn = document.getElementById('retakeBtn');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (!state.stream || video.videoWidth === 0) {
+                showToast("Kamera belum siap!", "error");
+                return;
+            }
+
+            // Visual shutter flash effect
+            const viewport = document.getElementById('cameraViewport');
+            viewport.classList.add('flash-effect');
+            setTimeout(() => viewport.classList.remove('flash-effect'), 300);
+
+            // Match canvas dimensions to video feed
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            const ctx = canvas.getContext('2d');
+
+            // Draw video frame to canvas
+            ctx.save();
+            if (state.facingMode === 'user') {
+                // Mirror image horizontally for front camera to look natural
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
+
+            // --- DRAW WATERMARK OVERLAY ON CANVAS ---
+            drawTimestampWatermark(ctx, canvas.width, canvas.height);
+
+            // Convert Canvas to Image URL
+            state.capturedPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+            // Update UI state
+            previewImg.src = state.capturedPhotoDataUrl;
+            previewImg.classList.remove('hidden');
+            video.classList.add('hidden');
+            liveGuide.classList.add('hidden');
+            liveBadge.classList.add('hidden');
+
+            captureBtn.classList.add('hidden');
+            retakeBtn.classList.remove('hidden');
+            submitBtn.disabled = false;
+
+            showToast("Foto berhasil diambil dengan Watermark!", "success");
+        }
+
+        function drawTimestampWatermark(ctx, width, height) {
+            // Form values for dynamic text watermark
+            const workerName = document.getElementById('workerName').value.trim() || 'Pekerja';
+            const workerNip = document.getElementById('workerNip').value.trim() || 'NIP -';
+            const attendanceType = document.getElementById('attendanceType').value;
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = now.toLocaleTimeString('id-ID', { hour12: false }) + ' WIB';
+            const locationStr = state.gps.text;
+
+            // Watermark Banner Background Height
+            const bannerHeight = Math.max(100, height * 0.22);
+
+            // Semi-transparent Dark Gradient Box at bottom
+            const gradient = ctx.createLinearGradient(0, height - bannerHeight, 0, height);
+            gradient.addColorStop(0, 'rgba(15, 23, 42, 0.75)');
+            gradient.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
+
+            // Accent Line Top of Banner
+            ctx.fillStyle = '#6366f1'; // Indigo 500
+            ctx.fillRect(0, height - bannerHeight, width, 4);
+
+            // Watermark Text Styling
+            const paddingLeft = 24;
+            let currentY = height - bannerHeight + 28;
+
+            // Badge Title: VERIFIED ABSENSI
+            ctx.fillStyle = '#10b981'; // Emerald 500
+            ctx.font = 'bold 14px sans-serif';
+            ctx.fillText('✓ VERIFIED TIMESTAMP ABSENSI', paddingLeft, currentY);
+
+            // Time & Date
+            currentY += 22;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText(`🕒 ${dateStr} ${timeStr}`, paddingLeft, currentY);
+
+            // Worker Name & Type
+            currentY += 20;
+            ctx.fillStyle = '#cbd5e1'; // Slate 300
+            ctx.font = '500 13px sans-serif';
+            ctx.fillText(`👤 ${workerName} (${workerNip}) | Status: ${attendanceType}`, paddingLeft, currentY);
+
+            // GPS Coordinates
+            currentY += 18;
+            ctx.fillStyle = '#94a3b8'; // Slate 400
+            ctx.font = '400 12px monospace';
+            ctx.fillText(`📍 GPS: ${locationStr}`, paddingLeft, currentY);
+        }
+
+        function retakePhoto() {
+            const video = document.getElementById('webcam');
+            const previewImg = document.getElementById('photoResultPreview');
+            const liveGuide = document.getElementById('liveWatermarkGuide');
+            const liveBadge = document.getElementById('liveBadge');
+            const captureBtn = document.getElementById('captureBtn');
+            const retakeBtn = document.getElementById('retakeBtn');
+            const submitBtn = document.getElementById('submitBtn');
+
+            state.capturedPhotoDataUrl = null;
+
+            previewImg.classList.add('hidden');
+            video.classList.remove('hidden');
+            liveGuide.classList.remove('hidden');
+            liveBadge.classList.remove('hidden');
+
+            captureBtn.classList.remove('hidden');
+            retakeBtn.classList.add('hidden');
+            submitBtn.disabled = true;
+        }
+
+        // --- SUBMIT ABSENSI & STORAGE ---
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            if (!state.capturedPhotoDataUrl) {
+                showToast("Harap ambil foto terlebih dahulu!", "error");
+                return;
+            }
+
+            const name = document.getElementById('workerName').value.trim();
+            const nip = document.getElementById('workerNip').value.trim();
+            const type = document.getElementById('attendanceType').value;
+            const notes = document.getElementById('attendanceNotes').value.trim();
+
+            const now = new Date();
+            const record = {
+                id: 'ABS-' + Date.now(),
+                timestamp: now.toISOString(),
+                dateStr: now.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+                timeStr: now.toLocaleTimeString('id-ID', { hour12: false }) + ' WIB',
+                name: name,
+                nip: nip,
+                type: type,
+                notes: notes || '-',
+                location: state.gps.text,
+                photoDataUrl: state.capturedPhotoDataUrl
+            };
+
+            // Save to LocalStorage
+            state.records.unshift(record);
+            saveRecordsToStorage();
+
+            // Reset Form and Photo State
+            document.getElementById('attendanceForm').reset();
+            retakePhoto();
+            updateHistoryBadge();
+
+            showToast("Absensi berhasil disimpan!", "success");
+
+            // Switch automatically to history view after brief delay
+            setTimeout(() => {
+                switchTab('history');
+            }, 800);
+        }
+
+        function loadRecordsFromStorage() {
+            const stored = localStorage.getItem('worker_attendance_records');
+            if (stored) {
+                try {
+                    state.records = JSON.parse(stored);
+                } catch (e) {
+                    console.error("Failed to parse storage data", e);
+                    state.records = [];
+                }
+            }
+            renderHistoryList();
+        }
+
+        function saveRecordsToStorage() {
+            try {
+                localStorage.setItem('worker_attendance_records', JSON.stringify(state.records));
+            } catch (e) {
+                showToast("Storage penuh! Beberapa foto lama mungkin perlu dibersihkan.", "warning");
+            }
+        }
+
+        // --- HISTORY VIEW & FILTERS ---
+        function switchTab(tab) {
+            state.currentTab = tab;
+            const formSection = document.getElementById('sectionForm');
+            const historySection = document.getElementById('sectionHistory');
+            const tabFormBtn = document.getElementById('tabFormBtn');
+            const tabHistoryBtn = document.getElementById('tabHistoryBtn');
+
+            if (tab === 'form') {
+                formSection.classList.remove('hidden');
+                historySection.classList.add('hidden');
+
+                tabFormBtn.className = "flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center space-x-2 bg-indigo-600 text-white shadow-sm";
+                tabHistoryBtn.className = "flex-1 py-2.5 px-4 rounded-lg font-medium text-sm text-slate-600 hover:text-slate-900 transition-all duration-200 flex items-center justify-center space-x-2";
+            } else {
+                formSection.classList.add('hidden');
+                historySection.classList.remove('hidden');
+
+                tabHistoryBtn.className = "flex-1 py-2.5 px-4 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center space-x-2 bg-indigo-600 text-white shadow-sm";
+                tabFormBtn.className = "flex-1 py-2.5 px-4 rounded-lg font-medium text-sm text-slate-600 hover:text-slate-900 transition-all duration-200 flex items-center justify-center space-x-2";
+
+                renderHistoryList();
+            }
+        }
+
+        function updateHistoryBadge() {
+            document.getElementById('historyBadgeCount').innerText = state.records.length;
+        }
+
+        function renderHistoryList(recordsToDisplay = state.records) {
+            const container = document.getElementById('historyListContainer');
+            const emptyState = document.getElementById('emptyHistoryState');
+
+            container.innerHTML = '';
+
+            if (recordsToDisplay.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            recordsToDisplay.forEach(item => {
+                let badgeBg = "bg-emerald-100 text-emerald-800 border-emerald-200";
+                if (item.type === 'Absen Pulang') badgeBg = "bg-rose-100 text-rose-800 border-rose-200";
+                if (item.type === 'Dinas Luar') badgeBg = "bg-amber-100 text-amber-800 border-amber-200";
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition duration-200";
+                
+                card.innerHTML = `
+                    <div class="relative group cursor-pointer bg-slate-900 aspect-video overflow-hidden" onclick="openPhotoModal('${item.id}')">
+                        <img src="${item.photoDataUrl}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 opacity-90" alt="${item.name}">
+                        <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-semibold gap-1">
+                            <i data-lucide="maximize-2" class="w-4 h-4"></i> Lihat Foto Detail
+                        </div>
+                        <span class="absolute top-2 left-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeBg}">
+                            ${item.type}
+                        </span>
+                    </div>
+                    
+                    <div class="p-4 space-y-2 flex-1 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-start justify-between">
+                                <h3 class="font-bold text-slate-900 text-sm">${escapeHtml(item.name)}</h3>
+                                <span class="text-[11px] font-mono text-slate-400">${item.nip}</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                                <i data-lucide="clock" class="w-3 h-3 text-indigo-500"></i> ${item.dateStr} • ${item.timeStr}
+                            </p>
+                        </div>
+
+                        ${item.notes && item.notes !== '-' ? `
+                            <div class="p-2 bg-slate-50 rounded-lg text-xs text-slate-600 border border-slate-100 italic truncate">
+                                "${escapeHtml(item.notes)}"
+                            </div>
+                        ` : ''}
+
+                        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                            <span class="font-mono text-[10px] truncate max-w-[180px]">📍 ${item.location}</span>
+                            <button onclick="deleteRecord('${item.id}')" class="text-slate-400 hover:text-rose-600 p-1 transition" title="Hapus Data">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const dateVal = document.getElementById('filterDate').value; // YYYY-MM-DD
+            const typeVal = document.getElementById('filterType').value;
+
+            const filtered = state.records.filter(r => {
+                // Search match
+                const matchQuery = r.name.toLowerCase().includes(query) || r.nip.toLowerCase().includes(query);
+                
+                // Date match
+                let matchDate = true;
+                if (dateVal) {
+                    const recordDateObj = new Date(r.timestamp);
+                    const formattedRecordDate = recordDateObj.toISOString().split('T')[0];
+                    matchDate = formattedRecordDate === dateVal;
+                }
+
+                // Type match
+                let matchType = true;
+                if (typeVal) {
+                    matchType = r.type === typeVal;
+                }
+
+                return matchQuery && matchDate && matchType;
+            });
+
+            renderHistoryList(filtered);
+        }
+
+        function deleteRecord(id) {
+            if (confirm("Apakah Anda yakin ingin menghapus data absensi ini?")) {
+                state.records = state.records.filter(r => r.id !== id);
+                saveRecordsToStorage();
+                updateHistoryBadge();
+                applyFilters();
+                showToast("Data absensi telah dihapus", "info");
+            }
+        }
+
+        function confirmClearHistory() {
+            if (state.records.length === 0) {
+                showToast("Riwayat sudah kosong", "info");
+                return;
+            }
+            if (confirm("PERINGATAN: Apakah Anda yakin ingin menghapus SELURUH riwayat absensi?")) {
+                state.records = [];
+                saveRecordsToStorage();
+                updateHistoryBadge();
+                renderHistoryList();
+                showToast("Semua riwayat telah dibersihkan", "info");
+            }
+        }
+
+        // --- EXPORT FUNCTIONALITIES ---
+        function exportToCSV() {
+            if (state.records.length === 0) {
+                showToast("Tidak ada data untuk diekspor!", "warning");
+                return;
+            }
+
+            const headers = ["ID Absensi", "Waktu", "Tanggal", "Nama Pekerja", "NIP", "Jenis Absen", "Lokasi GPS", "Catatan"];
+            const rows = state.records.map(r => [
+                `"${r.id}"`,
+                `"${r.timeStr}"`,
+                `"${r.dateStr}"`,
+                `"${r.name.replace(/"/g, '""')}"`,
+                `"${r.nip}"`,
+                `"${r.type}"`,
+                `"${r.location}"`,
+                `"${(r.notes || '').replace(/"/g, '""')}"`
+            ]);
+
+            const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+            downloadFile(csvContent, `Riwayat_Absensi_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
+            showToast("Berhasil mengekspor CSV!", "success");
+        }
+
+        function exportToJSON() {
+            if (state.records.length === 0) {
+                showToast("Tidak ada data untuk diekspor!", "warning");
+                return;
+            }
+
+            const jsonString = JSON.stringify(state.records, null, 2);
+            downloadFile(jsonString, `Riwayat_Absensi_${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+            showToast("Berhasil mengekspor JSON!", "success");
+        }
+
+        function downloadFile(content, fileName, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- PHOTO DETAIL MODAL ---
+        let currentModalRecord = null;
+
+        function openPhotoModal(id) {
+            const record = state.records.find(r => r.id === id);
+            if (!record) return;
+
+            currentModalRecord = record;
+            document.getElementById('modalTitle').innerText = `Foto Absensi - ${record.name}`;
+            document.getElementById('modalImage').src = record.photoDataUrl;
+            
+            const detailsBox = document.getElementById('modalDetails');
+            detailsBox.innerHTML = `
+                <div><span class="text-slate-400">Nama:</span> <strong class="text-slate-800">${escapeHtml(record.name)}</strong></div>
+                <div><span class="text-slate-400">NIP:</span> <strong class="text-slate-800">${record.nip}</strong></div>
+                <div><span class="text-slate-400">Waktu:</span> <strong class="text-slate-800">${record.dateStr} ${record.timeStr}</strong></div>
+                <div><span class="text-slate-400">Jenis:</span> <strong class="text-slate-800">${record.type}</strong></div>
+                <div class="col-span-2"><span class="text-slate-400">Lokasi GPS:</span> <strong class="text-slate-800 font-mono">${record.location}</strong></div>
+                ${record.notes ? `<div class="col-span-2"><span class="text-slate-400">Catatan:</span> <strong class="text-slate-800">${escapeHtml(record.notes)}</strong></div>` : ''}
+            `;
+
+            document.getElementById('photoModal').classList.remove('hidden');
+        }
+
+        function closePhotoModal() {
+            document.getElementById('photoModal').classList.add('hidden');
+            currentModalRecord = null;
+        }
+
+        function downloadModalPhoto() {
+            if (!currentModalRecord) return;
+            const a = document.createElement('a');
+            a.href = currentModalRecord.photoDataUrl;
+            a.download = `Absen_${currentModalRecord.name}_${currentModalRecord.dateStr.replace(/\//g,'-')}.jpg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // --- HELPER UTILS ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            let bgClass = "bg-slate-900 text-white";
+            if (type === 'success') bgClass = "bg-emerald-600 text-white";
+            if (type === 'error') bgClass = "bg-rose-600 text-white";
+            if (type === 'warning') bgClass = "bg-amber-600 text-white";
+
+            toast.className = `${bgClass} px-4 py-3 rounded-xl shadow-xl text-xs font-medium flex items-center space-x-2 transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            // Remove after 3s
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
